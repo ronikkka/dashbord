@@ -174,13 +174,20 @@ class ClockWidget extends Widget {
 
 class PomodoroWidget extends Widget {
     constructor(containerId) {
-        super(containerId, 'Таймер Pomodoro');
-        this.timeLeft = 25 * 60;
+        super(containerId, 'Таймер');
+
+        this.defaultTime = 25 * 60; 
+        this.timeLeft = this.defaultTime;
         this.timerId = null;
         this.isRunning = false;
 
         this.body = this.element.querySelector('.widget-body');
+     
         this.body.innerHTML = `
+            <div class="timer-settings">
+                <label>Минуты: </label>
+                <input type="number" class="time-input" value="25" min="1" max="120">
+            </div>
             <div class="timer-display">25:00</div>
             <div class="timer-controls">
                 <button class="btn toggle-btn">Старт</button>
@@ -191,13 +198,26 @@ class PomodoroWidget extends Widget {
         this.display = this.body.querySelector('.timer-display');
         this.toggleBtn = this.body.querySelector('.toggle-btn');
         this.resetBtn = this.body.querySelector('.reset-btn');
+        this.timeInput = this.body.querySelector('.time-input');
 
         this.handleToggle = this.handleToggle.bind(this);
         this.handleReset = this.handleReset.bind(this);
         this.tick = this.tick.bind(this);
+        this.handleTimeChange = this.handleTimeChange.bind(this);
 
         this.toggleBtn.addEventListener('click', this.handleToggle);
         this.resetBtn.addEventListener('click', this.handleReset);
+        this.timeInput.addEventListener('change', this.handleTimeChange);
+    }
+
+    handleTimeChange() {
+        let mins = parseInt(this.timeInput.value, 10);
+        if (isNaN(mins) || mins < 1) mins = 1; 
+        
+        this.timeInput.value = mins; 
+        this.defaultTime = mins * 60; 
+        this.timeLeft = this.defaultTime; 
+        this.updateDisplay();
     }
 
     updateDisplay() {
@@ -219,9 +239,10 @@ class PomodoroWidget extends Widget {
     handleToggle() {
         if (this.isRunning) {
             clearInterval(this.timerId);
-            this.toggleBtn.textContent = 'Старт';
+            this.toggleBtn.textContent = 'Продолжить';
             this.toggleBtn.classList.remove('btn-warning');
         } else {
+            this.timeInput.disabled = true; 
             this.timerId = setInterval(this.tick, 1000);
             this.toggleBtn.textContent = 'Пауза';
             this.toggleBtn.classList.add('btn-warning');
@@ -232,7 +253,9 @@ class PomodoroWidget extends Widget {
     handleReset() {
         clearInterval(this.timerId);
         this.isRunning = false;
-        this.timeLeft = 25 * 60;
+        this.timeLeft = this.defaultTime; 
+
+        this.timeInput.disabled = false; 
         this.toggleBtn.textContent = 'Старт';
         this.toggleBtn.classList.remove('btn-warning');
         this.updateDisplay();
@@ -242,6 +265,7 @@ class PomodoroWidget extends Widget {
         clearInterval(this.timerId);
         this.toggleBtn.removeEventListener('click', this.handleToggle);
         this.resetBtn.removeEventListener('click', this.handleReset);
+        this.timeInput.removeEventListener('change', this.handleTimeChange);
         super.destroy();
     }
 }
