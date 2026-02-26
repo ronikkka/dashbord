@@ -1,4 +1,3 @@
-// Базовый класс для всех виджетов
 class Widget {
     constructor(containerId, title) {
         this.container = document.getElementById(containerId);
@@ -7,8 +6,7 @@ class Widget {
         
         this.element = this.createBaseElement();
         this.closeBtn = this.element.querySelector('.close-btn');
-        
-        // Привязываем контекст для корректного удаления слушателя
+
         this.handleClose = this.handleClose.bind(this);
         this.closeBtn.addEventListener('click', this.handleClose);
     }
@@ -31,7 +29,6 @@ class Widget {
     }
 
     destroy() {
-        // Требование 3: Корректное удаление слушателей событий
         this.closeBtn.removeEventListener('click', this.handleClose);
         this.element.remove();
     }
@@ -41,11 +38,10 @@ class Widget {
     }
 }
 
-// Требование 2: Независимое состояние (список задач)
 class TodoWidget extends Widget {
     constructor(containerId) {
         super(containerId, 'Список задач');
-        this.tasks = []; // Изолированный массив задач для каждого экземпляра
+        this.tasks = []; 
         
         this.body = this.element.querySelector('.widget-body');
         this.body.innerHTML = `
@@ -64,7 +60,6 @@ class TodoWidget extends Widget {
         this.handleListClick = this.handleListClick.bind(this);
         
         this.addBtn.addEventListener('click', this.handleAddTask);
-        // Требование 3: Делегирование событий на весь список (вместо слушателей на каждую кнопку)
         this.list.addEventListener('click', this.handleListClick);
     }
 
@@ -99,19 +94,16 @@ class TodoWidget extends Widget {
     }
 
     destroy() {
-        // Очистка локальных слушателей перед удалением DOM-узла
         this.addBtn.removeEventListener('click', this.handleAddTask);
         this.list.removeEventListener('click', this.handleListClick);
         super.destroy();
     }
 }
 
-// Требование 2: Независимое состояние (текущая цитата)
 class QuoteWidget extends Widget {
     constructor(containerId) {
         super(containerId, 'Мотивация');
         this.quotes = [
-            "Пишите код так, как будто сопровождать его будет склонный к насилию психопат.",
             "Работает? Не трогай!",
             "Сначала решите проблему, потом пишите код."
         ];
@@ -147,17 +139,132 @@ class QuoteWidget extends Widget {
     }
 }
 
-// Требование 1: Динамическое добавление виджетов
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('add-todo-btn').addEventListener('click', () => {
-        new TodoWidget('dashboard').mount();
-    });
-    
-    document.getElementById('add-quote-btn').addEventListener('click', () => {
-        new QuoteWidget('dashboard').mount();
-    });
+class ClockWidget extends Widget {
+    constructor(containerId) {
+        super(containerId, 'Время и Дата');
+        
+        this.body = this.element.querySelector('.widget-body');
+        this.body.innerHTML = `
+            <div class="clock-time"></div>
+            <div class="clock-date"></div>
+        `;
+        
+        this.timeDisplay = this.body.querySelector('.clock-time');
+        this.dateDisplay = this.body.querySelector('.clock-date');
+        
+        this.updateTime = this.updateTime.bind(this);
+        
+        this.timerId = setInterval(this.updateTime, 1000);
+        this.updateTime();
+    }
 
-    // Инициализация двух виджетов по умолчанию
+    updateTime() {
+        const now = new Date();
+        this.timeDisplay.textContent = now.toLocaleTimeString('ru-RU');
+        this.dateDisplay.textContent = now.toLocaleDateString('ru-RU', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        });
+    }
+
+    destroy() {
+        clearInterval(this.timerId); 
+        super.destroy();
+    }
+}
+
+class PomodoroWidget extends Widget {
+    constructor(containerId) {
+        super(containerId, 'Таймер Pomodoro');
+        this.timeLeft = 25 * 60;
+        this.timerId = null;
+        this.isRunning = false;
+
+        this.body = this.element.querySelector('.widget-body');
+        this.body.innerHTML = `
+            <div class="timer-display">25:00</div>
+            <div class="timer-controls">
+                <button class="btn toggle-btn">Старт</button>
+                <button class="btn btn-danger reset-btn">Сброс</button>
+            </div>
+        `;
+
+        this.display = this.body.querySelector('.timer-display');
+        this.toggleBtn = this.body.querySelector('.toggle-btn');
+        this.resetBtn = this.body.querySelector('.reset-btn');
+
+        this.handleToggle = this.handleToggle.bind(this);
+        this.handleReset = this.handleReset.bind(this);
+        this.tick = this.tick.bind(this);
+
+        this.toggleBtn.addEventListener('click', this.handleToggle);
+        this.resetBtn.addEventListener('click', this.handleReset);
+    }
+
+    updateDisplay() {
+        const minutes = Math.floor(this.timeLeft / 60).toString().padStart(2, '0');
+        const seconds = (this.timeLeft % 60).toString().padStart(2, '0');
+        this.display.textContent = `${minutes}:${seconds}`;
+    }
+
+    tick() {
+        if (this.timeLeft > 0) {
+            this.timeLeft--;
+            this.updateDisplay();
+        } else {
+            this.handleToggle();
+            alert('Время вышло! Пора отдохнуть.');
+        }
+    }
+
+    handleToggle() {
+        if (this.isRunning) {
+            clearInterval(this.timerId);
+            this.toggleBtn.textContent = 'Старт';
+            this.toggleBtn.classList.remove('btn-warning');
+        } else {
+            this.timerId = setInterval(this.tick, 1000);
+            this.toggleBtn.textContent = 'Пауза';
+            this.toggleBtn.classList.add('btn-warning');
+        }
+        this.isRunning = !this.isRunning;
+    }
+
+    handleReset() {
+        clearInterval(this.timerId);
+        this.isRunning = false;
+        this.timeLeft = 25 * 60;
+        this.toggleBtn.textContent = 'Старт';
+        this.toggleBtn.classList.remove('btn-warning');
+        this.updateDisplay();
+    }
+
+    destroy() {
+        clearInterval(this.timerId);
+        this.toggleBtn.removeEventListener('click', this.handleToggle);
+        this.resetBtn.removeEventListener('click', this.handleReset);
+        super.destroy();
+    }
+}
+
+class NoteWidget extends Widget {
+    constructor(containerId) {
+        super(containerId, 'Быстрая заметка');
+        
+        this.body = this.element.querySelector('.widget-body');
+        this.body.innerHTML = `
+            <textarea class="note-input" placeholder="Запишите вашу мысль..."></textarea>
+        `;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('add-todo-btn').addEventListener('click', () => new TodoWidget('dashboard').mount());
+    document.getElementById('add-quote-btn').addEventListener('click', () => new QuoteWidget('dashboard').mount());
+    document.getElementById('add-clock-btn').addEventListener('click', () => new ClockWidget('dashboard').mount());
+    document.getElementById('add-pomodoro-btn').addEventListener('click', () => new PomodoroWidget('dashboard').mount());
+    document.getElementById('add-note-btn').addEventListener('click', () => new NoteWidget('dashboard').mount());
+
+    new ClockWidget('dashboard').mount();
     new TodoWidget('dashboard').mount();
-    new QuoteWidget('dashboard').mount();
+    new PomodoroWidget('dashboard').mount();
 });
