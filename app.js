@@ -1,7 +1,9 @@
+const activeWidgets = new Set();
+
 class Widget {
-    constructor(containerId, title) {
+    constructor(containerId, title, widgetType) {
         this.container = document.getElementById(containerId);
-        this.id = 'widget-' + Date.now();
+        this.widgetType = widgetType;
         this.title = title;
         
         this.element = this.createBaseElement();
@@ -31,6 +33,10 @@ class Widget {
     destroy() {
         this.closeBtn.removeEventListener('click', this.handleClose);
         this.element.remove();
+        
+        activeWidgets.delete(this.widgetType);
+        const btn = document.getElementById(`btn-${this.widgetType}`);
+        if(btn) btn.disabled = false;
     }
 
     handleClose() {
@@ -38,17 +44,98 @@ class Widget {
     }
 }
 
+class WeatherWidget extends Widget {
+    constructor(containerId) {
+        super(containerId, 'Погода (С-Пб)', 'WeatherWidget');
+        this.body = this.element.querySelector('.widget-body');
+        this.body.innerHTML = `<div class="quote-text">Загрузка данных...</div>`;
+        this.fetchWeather();
+    }
+
+    async fetchWeather() {
+        try {
+            const url = 'https://api.open-meteo.com/v1/forecast?latitude=59.9386&longitude=30.3141&current_weather=true';
+            const response = await fetch(url);
+            const data = await response.json();
+            const weather = data.current_weather;
+
+            this.body.innerHTML = `
+                <div class="weather-temp">${Math.round(weather.temperature)}°C</div>
+                <div class="weather-desc">Ветер: ${weather.windspeed} км/ч</div>
+                <button class="btn btn-primary" style="margin-top:1rem; width:100%" id="update-weather">Обновить</button>
+            `;
+            
+            this.body.querySelector('#update-weather').addEventListener('click', () => {
+                this.body.innerHTML = `<div class="quote-text">Обновление...</div>`;
+                this.fetchWeather();
+            });
+
+        } catch (error) {
+            this.body.innerHTML = `<div class="quote-text" style="color:var(--danger)">Ошибка загрузки API</div>`;
+        }
+    }
+}
+
+class QuoteWidget extends Widget {
+    constructor(containerId) {
+        super(containerId, 'Мотивация', 'QuoteWidget');
+        this.body = this.element.querySelector('.widget-body');
+        
+        this.body.innerHTML = `
+            <div class="quote-text">Загрузка мысли...</div>
+            <div class="quote-author"></div>
+            <button class="btn btn-primary next-btn" style="width: 100%;">Другая цитата</button>
+        `;
+        
+        this.quoteText = this.body.querySelector('.quote-text');
+        this.quoteAuthor = this.body.querySelector('.quote-author');
+        this.nextBtn = this.body.querySelector('.next-btn');
+        
+        this.handleNext = this.handleNext.bind(this);
+        this.nextBtn.addEventListener('click', this.handleNext);
+        
+        this.fetchQuote();
+    }
+
+    async fetchQuote() {
+        this.nextBtn.disabled = true;
+        this.quoteText.textContent = "Загрузка...";
+        this.quoteAuthor.textContent = "";
+        
+        try {
+            const response = await fetch('https://dummyjson.com/quotes/random');
+            const data = await response.json();
+            this.quoteText.textContent = `«${data.quote}»`;
+            this.quoteAuthor.textContent = `- ${data.author}`;
+        } catch (error) {
+            this.quoteText.textContent = "Не удалось загрузить цитату.";
+        } finally {
+            this.nextBtn.disabled = false;
+        }
+    }
+
+    handleNext() {
+        this.fetchQuote();
+    }
+
+    destroy() {
+        this.nextBtn.removeEventListener('click', this.handleNext);
+        super.destroy();
+    }
+}
+
+
 class TodoWidget extends Widget {
     constructor(containerId) {
-        super(containerId, 'Список задач');
+        super(containerId, 'Список задач', 'TodoWidget');
         this.tasks = []; 
         
         this.body = this.element.querySelector('.widget-body');
         this.body.innerHTML = `
             <ul class="todo-list"></ul>
-            <div style="display: flex; gap: 5px; margin-top: 10px;">
+            <div style="display: flex; gap: 8px; margin-top: 15px;">
                 <input type="text" placeholder="Новая задача..." style="flex-grow: 1;">
-                <button class="btn add-btn">Добавить</button>
+                <button class="btn btn-primary add-btn">Добавить</button>
             </div>
         `;
         
@@ -60,6 +147,7 @@ class TodoWidget extends Widget {
         this.handleListClick = this.handleListClick.bind(this);
         
         this.addBtn.addEventListener('click', this.handleAddTask);
+        this.input.addEventListener('keypress', (e) => { if(e.key === 'Enter') this.handleAddTask() });
         this.list.addEventListener('click', this.handleListClick);
     }
 
@@ -87,61 +175,16 @@ class TodoWidget extends Widget {
             li.className = 'todo-item';
             li.innerHTML = `
                 <span>${task.text}</span>
-                <button data-id="${task.id}">X</button>
+                <button data-id="${task.id}">✕</button>
             `;
             this.list.appendChild(li);
         });
-    }
-
-    destroy() {
-        this.addBtn.removeEventListener('click', this.handleAddTask);
-        this.list.removeEventListener('click', this.handleListClick);
-        super.destroy();
-    }
-}
-
-class QuoteWidget extends Widget {
-    constructor(containerId) {
-        super(containerId, 'Мотивация');
-        this.quotes = [
-            "Работает? Не трогай!",
-            "Сначала решите проблему, потом пишите код."
-        ];
-        this.currentIndex = Math.floor(Math.random() * this.quotes.length);
-        
-        this.body = this.element.querySelector('.widget-body');
-        this.body.innerHTML = `
-            <p class="quote-text"></p>
-            <button class="btn next-btn" style="width: 100%;">Следующая</button>
-        `;
-        
-        this.quoteText = this.body.querySelector('.quote-text');
-        this.nextBtn = this.body.querySelector('.next-btn');
-        
-        this.handleNext = this.handleNext.bind(this);
-        this.nextBtn.addEventListener('click', this.handleNext);
-        
-        this.updateQuote();
-    }
-
-    updateQuote() {
-        this.quoteText.textContent = this.quotes[this.currentIndex];
-    }
-
-    handleNext() {
-        this.currentIndex = (this.currentIndex + 1) % this.quotes.length;
-        this.updateQuote();
-    }
-
-    destroy() {
-        this.nextBtn.removeEventListener('click', this.handleNext);
-        super.destroy();
     }
 }
 
 class ClockWidget extends Widget {
     constructor(containerId) {
-        super(containerId, 'Время и Дата');
+        super(containerId, 'Время и Дата', 'ClockWidget');
         
         this.body = this.element.querySelector('.widget-body');
         this.body.innerHTML = `
@@ -151,7 +194,6 @@ class ClockWidget extends Widget {
         
         this.timeDisplay = this.body.querySelector('.clock-time');
         this.dateDisplay = this.body.querySelector('.clock-date');
-        
         this.updateTime = this.updateTime.bind(this);
         
         this.timerId = setInterval(this.updateTime, 1000);
@@ -160,7 +202,7 @@ class ClockWidget extends Widget {
 
     updateTime() {
         const now = new Date();
-        this.timeDisplay.textContent = now.toLocaleTimeString('ru-RU');
+        this.timeDisplay.textContent = now.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
         this.dateDisplay.textContent = now.toLocaleDateString('ru-RU', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
@@ -174,23 +216,21 @@ class ClockWidget extends Widget {
 
 class PomodoroWidget extends Widget {
     constructor(containerId) {
-        super(containerId, 'Таймер');
-
+        super(containerId, 'Таймер', 'PomodoroWidget');
         this.defaultTime = 25 * 60; 
         this.timeLeft = this.defaultTime;
         this.timerId = null;
         this.isRunning = false;
 
         this.body = this.element.querySelector('.widget-body');
-     
         this.body.innerHTML = `
             <div class="timer-settings">
-                <label>Минуты: </label>
+                <label>Минуты:</label>
                 <input type="number" class="time-input" value="25" min="1" max="120">
             </div>
             <div class="timer-display">25:00</div>
             <div class="timer-controls">
-                <button class="btn toggle-btn">Старт</button>
+                <button class="btn btn-primary toggle-btn">Старт</button>
                 <button class="btn btn-danger reset-btn">Сброс</button>
             </div>
         `;
@@ -213,11 +253,12 @@ class PomodoroWidget extends Widget {
     handleTimeChange() {
         let mins = parseInt(this.timeInput.value, 10);
         if (isNaN(mins) || mins < 1) mins = 1; 
-        
         this.timeInput.value = mins; 
         this.defaultTime = mins * 60; 
-        this.timeLeft = this.defaultTime; 
-        this.updateDisplay();
+        if(!this.isRunning) {
+            this.timeLeft = this.defaultTime; 
+            this.updateDisplay();
+        }
     }
 
     updateDisplay() {
@@ -254,26 +295,16 @@ class PomodoroWidget extends Widget {
         clearInterval(this.timerId);
         this.isRunning = false;
         this.timeLeft = this.defaultTime; 
-
         this.timeInput.disabled = false; 
         this.toggleBtn.textContent = 'Старт';
         this.toggleBtn.classList.remove('btn-warning');
         this.updateDisplay();
     }
-
-    destroy() {
-        clearInterval(this.timerId);
-        this.toggleBtn.removeEventListener('click', this.handleToggle);
-        this.resetBtn.removeEventListener('click', this.handleReset);
-        this.timeInput.removeEventListener('change', this.handleTimeChange);
-        super.destroy();
-    }
 }
 
 class NoteWidget extends Widget {
     constructor(containerId) {
-        super(containerId, 'Быстрая заметка');
-        
+        super(containerId, 'Быстрая заметка', 'NoteWidget');
         this.body = this.element.querySelector('.widget-body');
         this.body.innerHTML = `
             <textarea class="note-input" placeholder="Запишите вашу мысль..."></textarea>
@@ -281,14 +312,25 @@ class NoteWidget extends Widget {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('add-todo-btn').addEventListener('click', () => new TodoWidget('dashboard').mount());
-    document.getElementById('add-quote-btn').addEventListener('click', () => new QuoteWidget('dashboard').mount());
-    document.getElementById('add-clock-btn').addEventListener('click', () => new ClockWidget('dashboard').mount());
-    document.getElementById('add-pomodoro-btn').addEventListener('click', () => new PomodoroWidget('dashboard').mount());
-    document.getElementById('add-note-btn').addEventListener('click', () => new NoteWidget('dashboard').mount());
+function addWidget(WidgetClass, widgetName) {
+    if (activeWidgets.has(widgetName)) return;
 
-    new ClockWidget('dashboard').mount();
-    new TodoWidget('dashboard').mount();
-    new PomodoroWidget('dashboard').mount();
+    activeWidgets.add(widgetName);
+    const btn = document.getElementById(`btn-${widgetName}`);
+    if (btn) btn.disabled = true;
+
+    new WidgetClass('dashboard').mount();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btn-TodoWidget').addEventListener('click', () => addWidget(TodoWidget, 'TodoWidget'));
+    document.getElementById('btn-QuoteWidget').addEventListener('click', () => addWidget(QuoteWidget, 'QuoteWidget'));
+    document.getElementById('btn-WeatherWidget').addEventListener('click', () => addWidget(WeatherWidget, 'WeatherWidget'));
+    document.getElementById('btn-ClockWidget').addEventListener('click', () => addWidget(ClockWidget, 'ClockWidget'));
+    document.getElementById('btn-PomodoroWidget').addEventListener('click', () => addWidget(PomodoroWidget, 'PomodoroWidget'));
+    document.getElementById('btn-NoteWidget').addEventListener('click', () => addWidget(NoteWidget, 'NoteWidget'));
+
+    addWidget(ClockWidget, 'ClockWidget');
+    addWidget(WeatherWidget, 'WeatherWidget');
+    addWidget(QuoteWidget, 'QuoteWidget');
 });
