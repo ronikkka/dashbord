@@ -46,7 +46,7 @@ class Widget {
 
 class WeatherWidget extends Widget {
     constructor(containerId) {
-        super(containerId, 'Погода (С-Пб)', 'WeatherWidget');
+        super(containerId, 'Погода (СПб)', 'WeatherWidget');
         this.body = this.element.querySelector('.widget-body');
         this.body.innerHTML = `<div class="quote-text">Загрузка данных...</div>`;
         this.fetchWeather();
