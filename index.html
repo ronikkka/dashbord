@@ -4,17 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Дашборд Продуктивности</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <header class="header">
-        <h1>Мой Дашборд</h1>
+        <div class="logo">
+            <h1>Workspace</h1>
+            <span class="badge">Pro</span>
+        </div>
         <div class="controls">
-            <button id="add-todo-btn" class="btn">Добавить задачи</button>
-            <button id="add-quote-btn" class="btn">Добавить цитату</button>
-            <button id="add-clock-btn" class="btn">Часы</button>
-            <button id="add-pomodoro-btn" class="btn">Таймер</button>
-            <button id="add-note-btn" class="btn">Заметка</button>
+            <button id="btn-TodoWidget" class="btn" data-widget="TodoWidget">Задачи</button>
+            <button id="btn-QuoteWidget" class="btn" data-widget="QuoteWidget">Цитата</button>
+            <button id="btn-WeatherWidget" class="btn" data-widget="WeatherWidget">Погода</button>
+            <button id="btn-ClockWidget" class="btn" data-widget="ClockWidget">Часы</button>
+            <button id="btn-PomodoroWidget" class="btn" data-widget="PomodoroWidget">Таймер</button>
+            <button id="btn-NoteWidget" class="btn" data-widget="NoteWidget">Заметка</button>
         </div>
     </header>
 
